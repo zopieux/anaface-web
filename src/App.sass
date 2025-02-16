@@ -1,0 +1,43 @@
+@use "sass:color"
+
+html, body
+    margin: 0
+    padding: 0
+    background-color: #f0f0f0
+
+main
+    max-width: 960px
+    margin: 0 auto
+    padding: 0
+
+h1
+    margin: 1rem 0
+    padding: 0
+
+input[type=file]
+    $bg: #cfcfcf
+    background: $bg
+    width: 100%
+    padding: 1rem
+    box-sizing: border-box
+    position: relative
+    cursor: pointer
+
+    &.dragging
+        background: color.adjust($bg, $lightness: -5%)
+        &::before
+            content: 'You can drop!'
+
+    &::before
+        position: absolute
+        display: flex
+        flex-direction: column
+        align-items: flex-end
+        padding-inline-end: 1rem
+        justify-content: center
+        top: 0
+        right: 0
+        height: 100%
+        width: 100%
+        pointer-events: none
+        content: 'Pick or drag & drop in this area'

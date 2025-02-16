@@ -1,0 +1,79 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.13.1
+
+      - name: Build Rust project
+        working-directory: ./rusty
+        run: wasm-pack build --target=web
+
+      - name: Upload pkg/ folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg
+          path: rusty/pkg/
+
+  build-web:
+    runs-on: ubuntu-latest
+    needs: build-rust
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download pkg/ folder
+        uses: actions/download-artifact@v4
+        with:
+          name: pkg
+          path: rusty/pkg/
+
+      - name: Get weights
+        run: >
+          mkdir -p src/assets/ &&
+          curl -L --fail -o src/assets/det_10g.onnx
+          https://github.com/yakhyo/face-reidentification/releases/download/v0.0.1/det_10g.onnx
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Link Rust package
+        working-directory: ./rusty/pkg
+        run: yarn link
+
+      - name: Link Rust package in root project
+        run: yarn link anaface-rs
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: >
+          yarn global add netlify-cli@18.1.0 2> >(grep -Fv warning 1>&2) &&
+          netlify deploy
+          --dir=dist
+          --prod
+          --message='From GitHub run ${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}'
+          | grep -Fv -e 'deployId' -e 'Unique deploy'
